@@ -1,5 +1,7 @@
+version: 2026.249.2125
 charly-selkies:
     candy:
+        version: 2026.243.0909
         description: |-
             Metadata concept candy owning the charly-selkies skills whose names have no namesake candy (selkies desktop images). Owns its family's `skill:` kind entities (sibling nodes in this file) — the
             the plugins→candies migration; candy/plugin-marketplace regenerates the marketplace
@@ -14,6 +16,7 @@ charly-selkies:
               context:
                 - build
               command: "true"
+
 selkies-desktop-layer-skill:
     skill:
         name: selkies-desktop-layer
@@ -24,13 +27,13 @@ selkies-desktop-layer-skill:
             Use when working with the selkies-desktop metalayer composition, labwc desktop, or browser-accessible remote desktops.
         content: |-
             # Candy: selkies-desktop
-
+            
             Metalayer composing a full Selkies Wayland streaming desktop with Chrome, Waybar, desktop automation tools, accessibility introspection, and XWayland support.
-
+            
             ## Composition
-
+            
             The metalayer composes the full streaming-desktop set as an inline `candy:` list inside its `candy:` kind value (the shared `selkies-core` spine pulls Chrome, the `wl-*` tooling, fonts, a11y, terminal tools transitively):
-
+            
             ```yaml
             selkies-desktop:
               candy:
@@ -53,9 +56,9 @@ selkies-desktop-layer-skill:
                   - fastfetch               # System information display
                   - selkies                 # Streaming server (pixelflux + pcmflux + nginx)
             ```
-
+            
             ## What You Get
-
+            
             A browser-accessible desktop at `http://localhost:3000` with:
             - **labwc** Wayland compositor with server-side decorations
             - **Waybar** top panel with system monitors, clock, audio, and notification bell
@@ -76,9 +79,9 @@ selkies-desktop-layer-skill:
             - **Desktop video recording** via the `record:` check verb (`record_mode: desktop`, capture bridge → H.264 → ffmpeg MP4, with optional audio)
             - **Fullscreen overlays** via the `wl:` verb's `overlay-show` / `overlay-hide` methods (title cards, lower-thirds, countdowns, highlights, fades — rendered by compositor with true alpha transparency, no post-production needed)
             - **Configurable keyboard layout** via `XKB_DEFAULT_LAYOUT` — German (de), French (fr), Nordic (no), etc. AltGr characters (@, €, \\, ~) work via direct scancode injection. See `/charly-selkies:labwc`
-
+            
             ## What Works / What Doesn't
-
+            
             | Feature | Status | Notes |
             |---------|--------|-------|
             | Screenshots (pixelflux-screenshot) | WORKS | Via capture bridge at /tmp/charly-capture.sock |
@@ -95,9 +98,9 @@ selkies-desktop-layer-skill:
             | CDP click --wl | WORKS | Selector → Wayland pointer (same coordinate space) |
             | CDP axtree | WORKS | Chrome accessibility tree with filtering |
             | wl-overlay (overlays) | WORKS | True alpha, ~15s screenshot latency in controller mode. Instant in recordings |
-
+            
             ## Startup Order
-
+            
             | Priority | Service | Creates |
             |----------|---------|---------|
             | 2 | dbus | D-Bus session bus |
@@ -107,52 +110,52 @@ selkies-desktop-layer-skill:
             | 14 | swaync | Notification daemon (on wayland-0) |
             | 15 | waybar | Top panel (on wayland-0) |
             | 18 | nginx | Web UI on :3000 |
-
+            
             **Chrome ownership:** Chrome is launched + supervised by the `[program:chrome]` supervisord service in the shared `selkies-core` candy (`restart: always`), NOT by labwc's autostart — labwc's `autostart` no longer starts Chrome. The service is `autostart=true` and self-synchronizing (`chrome-wrapper` polls for the `wayland-0` client socket itself), so a single launcher serves both selkies flavors and there is no per-flavor `supervisorctl start` handoff to race. See `/charly-selkies:selkies-core` (Chrome supervision) and `/charly-selkies:chrome` (Chrome supervision) — the chrome candy supplies the cgroup memory caps.
-
+            
             **Capture singleton:** the selkies process owns a single process-wide `ScreenCapture` instance. Screenshot requests (`/charly-selkies:wl-screenshot-pixelflux`) and recording requests (`/charly-selkies:wl-record-pixelflux`) both attach to the same capture bridge at `/tmp/charly-capture.sock` — there is never a second capture process. This is the state enforced by commit `6be85eb` after the `WaylandBackend` leak investigation; the per-frame cleanup fix in commit `7977b91` is the paired memory-management step. See `/charly-selkies:selkies` (Pixelflux Memory Management) for the leak diagnosis, rollout recipe, and diagnostic commands.
-
+            
             ## Used In Boxes
-
+            
             - `/charly-selkies:selkies-labwc`
             - `/charly-selkies:selkies-labwc-nvidia`
-
+            
             ## Known bootc caveat — labwc ↔ pixelflux start-order race
-
+            
             On container images, `ENTRYPOINT=supervisord` with priority-based startup sequences the desktop tier cleanly. On bootc images, supervisord runs under a systemd user service, and a start-order race surfaces that's invisible in container mode:
-
+            
             - `labwc-wrapper` blocks at startup waiting for `/tmp/wayland-1` (pixelflux's socket).
             - `pixelflux` is started by `selkies` (another supervisord program) which — via its own ordering — comes up alongside labwc, not before it.
             - With `startsecs=2`, supervisord marks labwc RUNNING before pixelflux is ready. labwc-wrapper times out, exits status 1, supervisord restarts it. Meanwhile selkies exits too (labwc isn't up). Both programs cycle every ~15 s.
-
+            
             Stable services (`traefik`, `selkies-fileserver`, `chrome-devtools-mcp`, `cdp-proxy`, `sshd`, `tailscaled`, `swaync`, `waybar`, `dbus`, `pipewire`) keep running; the HTTPS selkies web endpoint on port 3000 and the MCP endpoint on 9224 both stay responsive throughout.
-
+            
             Fix options for a follow-up pass (none implemented yet — this candy is shared between container and bootc modes):
-
+            
             1. Raise labwc's `startsecs` so supervisord waits for pixelflux before declaring labwc RUNNING.
             2. Add an explicit `priority:` ordering via supervisord's eventlistener hooks — a `PROCESS_STATE_RUNNING` listener on selkies that `supervisorctl start`s labwc only after pixelflux publishes its socket.
             3. Have labwc-wrapper spawn pixelflux directly as a child (the container-mode start order without relying on supervisord for ordering).
-
+            
             This race is a property of the candy's bootc mode (supervisord-under-systemd); no enabled box currently composes this candy in bootc mode, so the caveat is documented here from the candy's behavior rather than a live exemplar.
-
+            
             ## Multi-Instance Proxy Deployment
-
+            
             Deploy multiple instances with different HTTP proxies. Each instance gets a port offset:
-
+            
             | Offset | Web (3000) | CDP (9222) | MCP (9224) | SSH (2222) |
             |--------|-----------|-----------|-----------|-----------|
             | 1 | 3001 | 9231 | 9241 | 2231 |
             | 2 | 3002 | 9232 | 9242 | 2232 |
             | N | 300N | 923N | 924N | 223N |
-
+            
             **Tunnel must be in charly.yml** for each instance. `charly config setup -i <ip>` does NOT inherit tunnel from the base entry. After config, manually add `tunnel: {provider: tailscale, private: all}` to the instance's charly.yml entry, then re-run `charly config setup -i <ip>` to regenerate the quadlet with Tailscale serve commands. See `/charly-core:deploy` for details.
-
+            
             **Chrome 147+ CDP:** The `/json/new` endpoint requires the PUT HTTP method (not GET). Use `curl -X PUT "http://localhost:<cdp-port>/json/new?<url>"` to create new tabs programmatically.
-
+            
             See `/charly-selkies:selkies-labwc` for full multi-instance deployment examples.
-
+            
             ## Related Skills
-
+            
             - `/charly-selkies:selkies` — Streaming engine, Pixelflux Memory Management, ScreenCapture singleton, DRINODE auto-detection, keyboard layout support
             - `/charly-selkies:labwc` — Nested Wayland compositor (its autostart no longer launches Chrome — selkies-core supervises it)
             - `/charly-selkies:selkies-core` — owns the supervised `[program:chrome]` service shared by both selkies flavors
@@ -168,11 +171,12 @@ selkies-desktop-layer-skill:
             - `/charly-core:charly-update` — Per-instance update pattern used to roll out pixelflux/Chrome fixes
             - `/charly-core:charly-config` — Multi-instance deployment, resource caps, tunnel, proxy env vars, NO_PROXY auto-enrichment
             - `/charly-core:deploy` — Tunnel configuration (charly.yml-only, instance inheritance gap)
-
+            
             ## Related
-
+            
             - `/charly-image:layer` — candy authoring reference (`charly.yml` schema, `run:`/`check:` step verbs, service declarations)
             - `/charly-check:check` — declarative testing (`check:` block, `charly check box`, `charly check live`)
+
 wl-overlay-layer-skill:
     skill:
         name: wl-overlay-layer
@@ -183,26 +187,26 @@ wl-overlay-layer-skill:
             Use when working with the wl-overlay candy, gtk4-layer-shell, or overlay dependencies.
         content: |-
             # wl-overlay -- Wayland overlay windows via gtk4-layer-shell
-
+            
             ## Candy Properties
-
+            
             | Property | Value |
             |----------|-------|
             | Dependencies | `dbus` |
             | Install files | `task:`, `charly-overlay` |
-
+            
             ## Packages
-
+            
             - `gtk4` (RPM)
             - `gtk4-layer-shell` (RPM) — includes `Gtk4LayerShell-1.0.typelib` for GObject Introspection
             - `python3-gobject` (RPM)
-
+            
             ## Technical Details
-
+            
             ### Python Script: `charly-overlay`
-
+            
             Installed to `~/.local/bin/charly-overlay` via `task:`. Dual-mode script (daemon + client) using GTK4 + gtk4-layer-shell for layer-shell protocol overlays.
-
+            
             **Key implementation details:**
             - **Shebang**: `#!/usr/bin/python3` (system Python 3.14, NOT pixi's Python — PyGObject is an RPM package)
             - **Library preload**: `CDLL("libgtk4-layer-shell.so.0")` must load before GTK4 import (registers layer-shell protocol before Wayland display init). Uses versioned soname `.so.0` (unversioned `.so` is in `-devel` package only)
@@ -210,16 +214,16 @@ wl-overlay-layer-skill:
             - **Cairo backgrounds**: all overlay backgrounds drawn via `Gtk.DrawingArea` + Cairo `paint()`. GTK4 CSS `background-color` with `rgba()` does not composite correctly on layer-shell windows
             - **Thread safety**: socket listener runs in a separate thread; all GTK operations dispatched via `GLib.idle_add()`
             - **IPC**: Unix domain socket at `/tmp/charly-overlay.sock` with JSON-line protocol
-
+            
             ### Layer-Shell Configuration
-
+            
             - **Layer**: `OVERLAY` (above TOP where waybar/swaync live)
             - **Keyboard mode**: `NONE` (overlays never capture input)
             - **Exclusive zone**: `-1` (don't push other windows)
             - **Namespace**: `charly-overlay-<name>` per overlay window
-
+            
             ## Usage
-
+            
             ```yaml
             # charly.yml — typically included via desktop metalayers
             # Already part of sway-desktop, selkies-desktop
@@ -227,7 +231,7 @@ wl-overlay-layer-skill:
               candy:
                 - wl-overlay
             ```
-
+            
             ```yaml
             overlay-show:
                 check: a text overlay is shown on the desktop
@@ -236,44 +240,44 @@ wl-overlay-layer-skill:
                 text: Hello
                 name: intro
                 context: [deploy]
-
+            
             overlay-list:
                 check: the active overlays are listed
                 wl: overlay-list
                 context: [deploy]
-
+            
             overlay-hide:
                 check: all overlays are hidden
                 wl: overlay-hide
                 all: true
                 context: [deploy]
             ```
-
+            
             ## Used In
-
+            
             - `/charly-selkies:sway-desktop` — sway desktop composition
             - `/charly-selkies:selkies-desktop-layer` — selkies streaming desktop composition
-
+            
             ## Used In Boxes
-
+            
             - `/charly-selkies:sway-browser-vnc` (via `sway-desktop` metalayer)
             - `/charly-selkies:selkies-labwc` (via `selkies-desktop` metalayer)
             - `/charly-selkies:selkies-labwc-nvidia` (via `selkies-desktop` metalayer)
-
+            
             ## Related Candies
-
+            
             - `/charly-infrastructure:dbus-layer` — D-Bus session bus (dependency, required by GTK4)
             - `/charly-selkies:wl-tools` — Wayland automation tools (sibling in desktop stack)
             - `/charly-selkies:a11y-tools` — also uses `python3-gobject` (RPM deduplication handles overlap)
             - `/charly-infrastructure:tmux-layer` — tmux (required for overlay daemon hosting)
-
+            
             ## Related Commands
-
+            
             - `/charly-check:wl-overlay` — Overlay command usage, types, recording workflow
             - `/charly-check:wl` — Compositor-agnostic desktop automation
             - `/charly-check:record` — Recording commands (overlays compose with recording)
-
+            
             ## Related
-
+            
             - `/charly-image:layer` — candy authoring reference (`charly.yml` schema, task verbs, service declarations)
             - `/charly-check:check` — declarative testing (`check:` block, `charly check box`, `charly check live`)
