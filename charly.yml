@@ -1,33 +1,19 @@
 charly-selkies:
     candy:
         description: |-
-            Metadata concept candy owning the charly-selkies skills whose names have no namesake candy (selkies desktop images). Owns its family's `skill:` kind entities (sibling nodes in this file) — the
-            the plugins→candies migration; candy/plugin-marketplace regenerates the marketplace
-            corpus (the standalone opencharly/marketplace repo) from them.
+            Drained concept candy — kept only so this repo still validates as a project while
+            it awaits retirement (opencharly/opencharly#600). It owns NO `skill:` entity any
+            more: under AGENTS.md Part II #5 the 2 `selkies` family skills moved,
+            byte-identically, to the repositories that hold the code, plugin or config each one
+            documents — `layer-wl-overlay`, `pod-selkies-desktop`.
+            Nothing is authored here now.
         plan:
-            - run: this documentation-only candy ships no install content (it carries the family's skill/hook/marketplace entities); validate-satisfying no-op
+            - run: this documentation-only candy ships no install content (it carried the family's skill entities); validate-satisfying no-op
               command: "true"
               context:
                 - build
-            - check: the selkies concept candy's skill entities are present and generated into the marketplace's selkies/skills
-              id: charly-selkies-present
+            - check: no-op — this drained candy declares no skill node; every selkies-family skill lives in the repo that holds the entity it documents
+              id: charly-selkies-drained
               context:
                 - build
               command: "true"
-
-selkies-desktop-layer-skill:
-    skill:
-        name: selkies-desktop-layer
-        family: selkies
-        owner: charly-selkies
-        description: |-
-            Metalayer composing a full Selkies Wayland streaming desktop with Chrome, Waybar, desktop automation tools, and accessibility introspection.
-            Use when working with the selkies-desktop metalayer composition, labwc desktop, or browser-accessible remote desktops.
-wl-overlay-layer-skill:
-    skill:
-        name: wl-overlay-layer
-        family: selkies
-        owner: charly-selkies
-        description: |-
-            Wayland overlay windows via gtk4-layer-shell (for screen recordings).
-            Use when working with the wl-overlay candy, gtk4-layer-shell, or overlay dependencies.
